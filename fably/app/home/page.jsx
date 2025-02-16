@@ -2,12 +2,12 @@
 import { useState } from "react";
 import Image from "next/image";
 import GameButton from "@/components/button";
-
-
-
+import LoadingScreen from "@/components/LoadingScreen";
+import { useRouter } from "next/navigation"; // Change this line
 
 export default function Home() {
-  
+    const router = useRouter(); // Add this line
+    const [isLoading, setIsLoading] = useState(false);
 
     const [formData, setFormData] = useState({
         culture: '',
@@ -16,13 +16,20 @@ export default function Home() {
         listeners: ''
     });
 
-    const handleSubmit = (e) => {
-
+    const handleSubmit = async (e) => {
         e.preventDefault();
-
+        setIsLoading(true);
         
-        // Add form submission logic here
-        console.log('Form submitted:', formData);
+        try {
+            // Add form submission logic here
+            console.log('Form submitted:', formData);            // Simulate API call
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        } finally {
+
+            router.push('/story');
+
+            setIsLoading(false);
+        }
     };
 
     const handleChange = (e) => {
@@ -35,6 +42,7 @@ export default function Home() {
 
     return (
         <div className="grid lg:grid-cols-5 min-h-screen bg-slate-950">
+            {isLoading && <LoadingScreen />}
             {/* Left column: image and text */}
             <div
                 className="relative bg-cover col-span-2 bg-center overflow-hidden m-3 rounded-md"
