@@ -4,6 +4,7 @@ import Image from "next/image";
 import GameButton from "@/components/button";
 import LoadingScreen from "@/components/LoadingScreen";
 import { useRouter } from "next/navigation"; // Change this line
+import { submitReaderData } from "@/utils/api";
 
 export default function Home() {
     const router = useRouter(); // Add this line
@@ -21,13 +22,19 @@ export default function Home() {
         setIsLoading(true);
         
         try {
-            // Add form submission logic here
-            console.log('Form submitted:', formData);            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 2000));
-        } finally {
-
+            const response = await submitReaderData(formData);
+            console.log('API Response:', response);
+            
+            // Store the response data in localStorage or state management
+            localStorage.setItem('storyData', JSON.stringify(response));
+            
+            // Navigate to story page
             router.push('/story');
-
+        } catch (error) {
+            console.error('Failed to submit form:', error);
+            // Handle error (show error message to user)
+            alert('Failed to generate story. Please try again.');
+        } finally {
             setIsLoading(false);
         }
     };
@@ -85,7 +92,7 @@ export default function Home() {
                     </div>
                     <div>
                         <label htmlFor="mood" className="block text-sm font-medium text-gray-300">
-                            Mood
+                            Theme
                         </label>
                         <select
                             id="mood"
@@ -98,7 +105,7 @@ export default function Home() {
                             <option value="adventurous">Adventurous</option>
                             <option value="mysterious">Mysterious</option>
                             <option value="uplifting">Uplifting</option>
-                            <option value="whimsical">Funny</option>
+                            <option value="funny">Funny</option>
                             <option value="whimsical">Educational</option>
                         </select>
                     </div>
