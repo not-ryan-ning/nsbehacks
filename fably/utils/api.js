@@ -40,42 +40,11 @@ const validateStoryData = (data) => {
 };
 
 export const getStoryPage = async (page = 1) => {
-    try {
-        const response = await fetch(`${API_BASE_URL}/story?page=${page}`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-            },
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        // Validate response
-        validateStoryData(data);
-
-        return processStoryData(data);
-    } catch (error) {
-        console.error('Error fetching story page:', error);
-        throw error;
-    }
+    // Use mock data instead of API call
+    return MOCK_PAGES[page - 1] || MOCK_PAGES[0];
 };
 
-
-const processStoryData = (data) => ({
-    lines: data.lines.map(line => ({
-        text: line.replace(/[()]/g, '').trim(),
-        isTranslation: line.startsWith('(')
-    })),
-    currentPage: data.page,
-    totalPages: data.total_pages,
-    hasNext: data.has_next,
-    hasPrevious: data.has_previous
-});
+// Remove other unused functions
 
 
 

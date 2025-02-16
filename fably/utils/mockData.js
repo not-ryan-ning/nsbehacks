@@ -1,43 +1,40 @@
 export const MOCK_STORY = {
-    page: 1,
-    total_pages: 3,
-    has_next: true,
-    has_previous: false,
     lines: [
-        "Herr Von Muellerhoff stood proudly in his grand library",
-        "(Herr Von Muellerhoff gyina ne nwoma dan mu ahokyere mu)",
-        "His collection of magical books sparkled in the candlelight",
-        "(Ne nhoma ahoɔden hyerɛn wɔ kanea no mu)",
-        "But today, something felt different in the air",
-        "(Nanso ɛnnɛ, biribi foforɔ wɔ mframa no mu)"
-    ]
+        { text: "Once upon a time in a small village", isTranslation: false },
+        { text: "Bere bi wo kuro ketewa bi mu", isTranslation: true },
+        { text: "There lived a brave young girl named Ama", isTranslation: false },
+        { text: "Na abeburoo kokuroo bi te hɔ a wɔfrɛ no Ama", isTranslation: true },
+    ],
+    currentPage: 1,
+    totalPages: 3,
+    hasNext: true,
+    hasPrevious: false
 };
 
-export const MOCK_PAGES = {
-    1: MOCK_STORY,
-    2: {
-        page: 2,
-        total_pages: 3,
-        has_next: true,
-        has_previous: true,
+export const MOCK_PAGES = [
+    MOCK_STORY,
+    {
         lines: [
-            "The magical books began to float off their shelves",
-            "(Nhoma ahoɔden no fii ase ma wɔn ho so firii shelf no so)",
-            "Herr Von Muellerhoff adjusted his monocle in amazement",
-            "(Herr Von Muellerhoff siesie ne monocle wɔ ahodwiri mu)",
-        ]
+            { text: "She loved to help others in her community", isTranslation: false },
+            { text: "Na ɔpɛ sɛ ɔboa afoforo wɔ ne mpɔtam hɔ", isTranslation: true },
+            { text: "Every day she would share her food with those in need", isTranslation: false },
+            { text: "Da biara na ɔne afoforo kyɛ n'aduane", isTranslation: true },
+        ],
+        currentPage: 2,
+        totalPages: 3,
+        hasNext: true,
+        hasPrevious: true
     },
-    3: {
-        page: 3,
-        total_pages: 3,
-        has_next: false,
-        has_previous: true,
+    {
         lines: [
-            "Perhaps it was time to share his magical library with the world",
-            "(Ebia na ɛyɛ berɛ a ɔbɛkyɛ ne nwoma dan ahoɔden no akyɛ wiase)",
-            "After all, magic belongs to everyone",
-            "(Nea ɛwɔ akyiri no, ahoɔden yɛ obiara dea)"
-        ]
-    },
-    
-};
+            { text: "And that's how she became known as the kind helper", isTranslation: false },
+            { text: "Na saa na ɔbɛyɛɛ ɔboafo pa", isTranslation: true },
+            { text: "The End", isTranslation: false },
+            { text: "Awie", isTranslation: true },
+        ],
+        currentPage: 3,
+        totalPages: 3,
+        hasNext: false,
+        hasPrevious: true
+    }
+];

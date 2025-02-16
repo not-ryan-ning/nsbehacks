@@ -1,5 +1,38 @@
 "use client";
+import dynamic from "next/dynamic";
+import { Suspense } from "react";
+
+const ThreeProvider = dynamic(
+  () =>
+    import("../../components/3d/ThreeProvider").then(
+      (mod) => mod.ThreeProvider
+    ),
+  {
+    ssr: false,
+    loading: () => <div>Loading 3D Scene...</div>,
+  }
+);
+const OrbitControls = dynamic(
+  () => import("@react-three/drei").then((mod) => mod.OrbitControls),
+  {
+    ssr: false,
+  }
+);
+const PerspectiveCamera = dynamic(
+  () => import("@react-three/drei").then((mod) => mod.PerspectiveCamera),
+  {
+    ssr: false,
+  }
+);
+const Model = dynamic(
+  () => import("../../components/avatarGLB").then((mod) => mod.Model),
+  {
+    ssr: false,
+  }
+);
+
 import { useState, useEffect } from "react";
+// Remove Canvas import since it's in ThreeProvider
 // Add TTS imports
 import {
   narrateStory,
@@ -33,22 +66,11 @@ export default function StoryPage() {
     setLoading(true);
     try {
       const data = await getStoryPage(page);
-      setStoryData({
-        lines: data.lines,
-        currentPage: data.currentPage,
-        totalPages: data.totalPages,
-        hasNext: data.hasNext,
-        hasPrevious: data.hasPrevious,
-      });
+      setStoryData(data);
       setProgress((data.currentPage / data.totalPages) * 100);
       setError(null);
     } catch (error) {
       console.error("Failed to load story:", error);
-      toast({
-        title: "Error",
-        description: "Using fallback content",
-        variant: "destructive",
-      });
       setError("Unable to load story page");
     } finally {
       setLoading(false);
@@ -148,6 +170,20 @@ export default function StoryPage() {
       stopNarration();
     };
   }, []);
+
+  const Avatar3D = () => (
+    <ThreeProvider>
+      <ambientLight intensity={0.5} />
+      <directionalLight position={[5, 5, 5]} intensity={1} />
+      <Model position={[0, -1, 0]} scale={1.5} />
+      <OrbitControls
+        enableZoom={false}
+        enablePan={false}
+        minPolarAngle={Math.PI / 2.2}
+        maxPolarAngle={Math.PI / 1.8}
+      />
+    </ThreeProvider>
+  );
 
   if (loading)
     return (
@@ -250,22 +286,24 @@ export default function StoryPage() {
 
               <button
                 onClick={handleNextPage}
-                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-lg text-white transition-all duration-300 ease-in-out flex-1 font-medium"
+                disabled={!storyData.hasNext}
+                className={`px-6 py-3 bg-white/10 backdrop-blur-md rounded-lg text-white transition-all duration-300 ease-in-out flex-1 font-medium ${
+                  !storyData.hasNext ? "opacity-50 cursor-not-allowed" : ""
+                }`}
               >
-                <span className="flex items-center justify-center gap-2">
-                  Next Page
-                </span>
+                Next Page
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Avatar panel */}
       <div className="lg:w-1/3 p-4 lg:p-6 bg-slate-900/50 backdrop-blur-lg">
         <div className="h-full rounded-2xl p-6 lg:p-8 flex flex-col items-center justify-center bg-slate-800/50 border border-white/10">
-          <div className="w-full h-[300px] flex items-center justify-center text-white/70">
-            Avatar placeholder
+          <div className="w-full h-[500px]">
+            <Suspense fallback={<div>Loading avatar...</div>}>
+              <Avatar3D />
+            </Suspense>
           </div>
         </div>
       </div>
