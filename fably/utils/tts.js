@@ -1,127 +1,127 @@
-const ELEVEN_LABS_API_URL = 'https://api.elevenlabs.io/v1';
-const DEFAULT_VOICE_ID = 'XUUzbXUrNRSPyhvz0zPi';
+let speech = null;
+let currentUtterance = null;
 
-let currentAudio = null;
-let isPlaying = false;
+const ELEVENLABS_API_KEY = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
+const VOICE_ID = 'pNInz6obpgDQGcFmaJgB'; // Example voice ID
 
-async function convertTextToSpeech(text, voiceId) {
-    const apiKey = process.env.NEXT_PUBLIC_ELEVEN_LABS_API_KEY;
-    if (!apiKey) {
-        throw new Error('ElevenLabs API key is not configured');
+async function convertTextToSpeech(text) {
+    // Always use browser speech if no API key
+    if (!ELEVENLABS_API_KEY) {
+        return browserSpeech(text);
     }
 
     try {
         const response = await fetch(
-            `${ELEVEN_LABS_API_URL}/text-to-speech/${voiceId}`,
+            `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}/stream`,
             {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'xi-api-key': apiKey,
+                    'xi-api-key': ELEVENLABS_API_KEY,
                 },
                 body: JSON.stringify({
                     text,
                     model_id: 'eleven_monolingual_v1',
                     voice_settings: {
                         stability: 0.5,
-                        similarity_boost: 0.5
-                    }
-                })
+                        similarity_boost: 0.5,
+                    },
+                }),
             }
         );
 
         if (!response.ok) {
-            throw new Error(`ElevenLabs API error: ${response.statusText}`);
+            throw new Error(`ElevenLabs API error: ${response.status}`);
         }
 
-        return await response.blob();
+        const audioBlob = await response.blob();
+        const audio = new Audio(URL.createObjectURL(audioBlob));
+
+        return {
+            play: () => audio.play(),
+            pause: () => audio.pause(),
+            resume: () => audio.play(),
+            stop: () => {
+                audio.pause();
+                audio.currentTime = 0;
+            }
+        };
     } catch (error) {
-        console.error('Error generating speech:', error);
+        console.warn('ElevenLabs API failed, falling back to browser speech:', error);
+        return browserSpeech(text);
+    }
+}
+
+function browserSpeech(text) {
+    return new Promise((resolve) => {
+        const utterance = new SpeechSynthesisUtterance(text);
+        currentUtterance = utterance;
+        utterance.rate = 0.9;
+        utterance.pitch = 1;
+        utterance.volume = 1;
+
+        // Try to use a good voice if available
+        const voices = speechSynthesis.getVoices();
+        const englishVoice = voices.find(voice =>
+            voice.lang.startsWith('en') && voice.name.includes('Female'));
+        if (englishVoice) {
+            utterance.voice = englishVoice;
+        }
+
+        resolve({
+            play: () => speechSynthesis.speak(utterance),
+            pause: () => speechSynthesis.pause(),
+            resume: () => speechSynthesis.resume(),
+            stop: () => speechSynthesis.cancel()
+        });
+    });
+}
+
+export async function narrateStory(lines, voiceId, callbacks = {}) {
+    try {
+        for (let i = 0; i < lines.length; i++) {
+            if (!lines[i]?.text) continue;
+
+            callbacks.onLineStart?.(i);
+            speech = await convertTextToSpeech(lines[i].text);
+
+            await new Promise((resolve, reject) => {
+                if (currentUtterance) {
+                    currentUtterance.onend = resolve;
+                    currentUtterance.onerror = reject;
+                }
+                speech.play();
+            });
+
+            callbacks.onLineEnd?.(i);
+        }
+    } catch (error) {
+        console.error('Narration error:', error);
+        stopNarration();
         throw error;
     }
 }
 
-/**
- * Narrates a story by converting its lines to speech
- * @param {Array<{text: string, isTranslation: boolean}>} storyLines - Array of story lines
- * @param {string} voiceId - The ID of the voice to use
- * @param {Object} options - Options for narration
- * @param {number} options.pauseBetweenLines - Pause duration between lines in ms
- * @param {function} options.onLineStart - Callback when a line starts
- * @param {function} options.onLineEnd - Callback when a line ends
- */
-export async function narrateStory(storyLines, voiceId = DEFAULT_VOICE_ID, options = {}) {
-    const {
-        pauseBetweenLines = 1000,
-        onLineStart = () => { },
-        onLineEnd = () => { }
-    } = options;
-
-    if (isPlaying) {
-        stopNarration();
-    }
-
-    isPlaying = true;
-    const mainLines = storyLines.filter(line => !line.isTranslation);
-
-    for (let i = 0; i < mainLines.length; i++) {
-        if (!isPlaying) break;
-
-        try {
-            onLineStart(i);
-            // Use simple blob conversion instead of MediaSource
-            const audioBlob = await convertTextToSpeech(mainLines[i].text, voiceId);
-            currentAudio = new Audio(URL.createObjectURL(audioBlob));
-
-            await new Promise((resolve, reject) => {
-                currentAudio.onended = () => {
-                    URL.revokeObjectURL(currentAudio.src); // Clean up
-                    onLineEnd(i);
-                    resolve();
-                };
-                currentAudio.onerror = reject;
-                currentAudio.play();
-            });
-
-            if (i < mainLines.length - 1 && isPlaying) {
-                await new Promise(resolve => setTimeout(resolve, pauseBetweenLines));
-            }
-        } catch (error) {
-            console.error(`Error narrating line ${i}:`, error);
-            throw error;
-        }
-    }
-
-    isPlaying = false;
-}
-
-/**
- * Stops the current narration
- */
 export function stopNarration() {
-    isPlaying = false;
-    if (currentAudio) {
-        currentAudio.pause();
-        currentAudio = null;
+    if (speech) {
+        speech.stop();
+        speech = null;
     }
+    speechSynthesis.cancel();
 }
 
-/**
- * Pauses the current narration
- */
 export function pauseNarration() {
-    if (currentAudio) {
-        currentAudio.pause();
+    if (speech) {
+        speech.pause();
     }
+    speechSynthesis.pause();
 }
 
-/**
- * Resumes the current narration
- */
 export function resumeNarration() {
-    if (currentAudio) {
-        currentAudio.play();
+    if (speech) {
+        speech.play();
     }
+    speechSynthesis.resume();
 }
 
 // Helper function to get available voices

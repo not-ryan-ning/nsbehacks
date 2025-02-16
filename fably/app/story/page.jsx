@@ -56,11 +56,7 @@ export default function StoryPage() {
   };
 
   useEffect(() => {
-    const loadBackground = async () => {
-      const imageUrl = await generateBackgroundImage();
-      setBackgroundImage(imageUrl);
-    };
-    loadBackground();
+    setBackgroundImage("/story.png"); // Use static background image
   }, []);
 
   const toggleLanguage = () => {
