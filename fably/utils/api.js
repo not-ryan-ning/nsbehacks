@@ -1,5 +1,3 @@
-import { MOCK_STORY, MOCK_PAGES } from './mockData';
-
 const API_BASE_URL = 'http://127.0.0.1:8000';
 
 export const submitReaderData = async (formData) => {
@@ -9,13 +7,13 @@ export const submitReaderData = async (formData) => {
             headers: {
                 'Content-Type': 'application/json',
             },
-            // Remove credentials and CORS mode
             body: JSON.stringify({
                 cultural_background: formData.culture,
                 age_range: formData.listeners,
                 story_length: formData.storyLength,
                 story_type: formData.mood,
-                language: formData.language
+                language: formData.language,
+                language_help: formData.languageHelp || false
             })
         });
 
@@ -30,21 +28,63 @@ export const submitReaderData = async (formData) => {
     }
 };
 
-// Validate API response format
-const validateStoryData = (data) => {
-    if (!data || typeof data !== 'object') throw new Error('Invalid response format');
-    if (!Array.isArray(data.lines)) throw new Error('Missing lines array');
-    if (typeof data.page !== 'number') throw new Error('Invalid page number');
-    if (typeof data.total_pages !== 'number') throw new Error('Invalid total pages');
-    return true;
+export const generateStory = async () => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/story`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('Error generating story:', error);
+        throw new Error('Failed to generate story. Please try again.');
+    }
 };
 
-export const getStoryPage = async (page = 1) => {
-    // Use mock data instead of API call
-    return MOCK_PAGES[page - 1] || MOCK_PAGES[0];
+export const getStoryPage = async (pageNumber) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/next-page/${pageNumber}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.paused) {
+            return {
+                paused: true,
+                currentLine: data.current_line,
+                message: data.message
+            };
+        }
+
+        return processStoryData(data);
+    } catch (error) {
+        console.error('Error fetching story page:', error);
+        throw new Error('Failed to fetch story page. Please try again.');
+    }
 };
 
-// Remove other unused functions
-
-
-
+const processStoryData = (data) => ({
+    lines: data.lines.map(line => ({
+        text: line.replace(/[()]/g, '').trim(),
+        isTranslation: line.startsWith('(')
+    })),
+    currentPage: data.page,
+    totalPages: data.total_pages,
+    hasNext: data.has_next,
+    hasPrevious: data.has_previous
+});
