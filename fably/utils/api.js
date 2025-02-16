@@ -41,11 +41,10 @@ const validateStoryData = (data) => {
 
 export const getStoryPage = async (page = 1) => {
     try {
-        const response = await fetch(`${API_BASE_URL}/story`, {
+        const response = await fetch(`${API_BASE_URL}/story?page=${page}`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
-                // Add CORS headers if needed
                 'Access-Control-Allow-Origin': '*',
             },
         });
@@ -61,11 +60,11 @@ export const getStoryPage = async (page = 1) => {
 
         return processStoryData(data);
     } catch (error) {
-        console.warn('API fetch failed, using mock data:', error);
-        // Fallback to mock data
-        return processStoryData(MOCK_PAGES[page] || MOCK_PAGES[1]);
+        console.error('Error fetching story page:', error);
+        throw error;
     }
 };
+
 
 const processStoryData = (data) => ({
     lines: data.lines.map(line => ({
@@ -90,7 +89,7 @@ export async function fetchVisualCues(lines) {
             method: "POST",
             headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENAI_API_KEY}`,
             },
             body: JSON.stringify({
             model: "gpt-4o-mini",

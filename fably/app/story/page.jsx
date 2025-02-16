@@ -1,8 +1,16 @@
 "use client";
 import { useState, useEffect } from "react";
+// Add TTS imports
+import {
+  narrateStory,
+  stopNarration,
+  pauseNarration,
+  resumeNarration,
+} from "../../utils/tts";
 import { useToast } from "@/components/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { getStoryPage } from "../../utils/api";
+import WebcamCapture from "../../utils/webcam";
 
 export default function StoryPage() {
   const [progress, setProgress] = useState(0);
@@ -18,6 +26,8 @@ export default function StoryPage() {
   const { toast } = useToast();
   const [showTranslation, setShowTranslation] = useState(true);
   const [backgroundImage, setBackgroundImage] = useState("/story.png");
+  const [isNarrating, setIsNarrating] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
 
   const loadStoryPage = async (page) => {
     setLoading(true);
@@ -63,8 +73,84 @@ export default function StoryPage() {
     });
   };
 
+  const handleNarration = async () => {
+    if (isNarrating) {
+      stopNarration();
+      setIsNarrating(false);
+      setIsPaused(false);
+      return;
+    }
+
+    setIsNarrating(true);
+    try {
+      const linesToNarrate = storyData.lines.filter(
+        (line) => !line.isTranslation || showTranslation
+      );
+
+      if (linesToNarrate.length === 0) {
+        throw new Error("No text to narrate");
+      }
+
+      await narrateStory(linesToNarrate, undefined, {
+        onLineStart: (index) => {
+          // Highlight the current line
+          const element = document.querySelector(`p[data-index="${index}"]`);
+          if (element) {
+            element.classList.add("reading");
+          }
+        },
+        onLineEnd: (index) => {
+          // Remove highlight
+          const element = document.querySelector(`p[data-index="${index}"]`);
+          if (element) {
+            element.classList.remove("reading");
+          }
+        },
+      });
+    } catch (error) {
+      console.error("Narration error:", error);
+      toast({
+        title: "Narration Error",
+        description: error.message || "Failed to narrate the story",
+        variant: "destructive",
+      });
+    } finally {
+      setIsNarrating(false);
+      setIsPaused(false);
+    }
+  };
+
+  const handlePauseResume = () => {
+    if (isPaused) {
+      resumeNarration();
+      setIsPaused(false);
+    } else {
+      pauseNarration();
+      setIsPaused(true);
+    }
+  };
+
+  const handleCapture = (imageSrc) => {
+    // Here you have the base64 image to upload
+    console.log("Captured image:", imageSrc);
+    // Add your upload logic here
+  };
+
+  const handleNextPage = () => {
+    if (storyData.hasNext) {
+      handleCapture(); // Capture image before loading next page
+      loadStoryPage(storyData.currentPage + 1);
+    }
+  };
+
   useEffect(() => {
     loadStoryPage(1);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      stopNarration();
+    };
   }, []);
 
   if (loading)
@@ -82,6 +168,7 @@ export default function StoryPage() {
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-slate-950">
+      <WebcamCapture onCapture={handleCapture} />
       <div className="lg:w-2/3 p-4 lg:p-6 relative min-h-[60vh] lg:min-h-screen">
         <div
           className="h-full rounded-2xl flex flex-col relative overflow-hidden transition-all duration-500 ease-in-out"
@@ -107,7 +194,8 @@ export default function StoryPage() {
                   .map((line, index) => (
                     <p
                       key={index}
-                      className={`text-white/90 text-6xl font-semibold leading-relaxed ${
+                      data-index={index}
+                      className={`text-white/90 text-4xl font-semibold leading-relaxed ${
                         line.isTranslation ? "italic text-blue-400" : ""
                       }`}
                     >
@@ -145,10 +233,27 @@ export default function StoryPage() {
                   {showTranslation ? "Hide Twi" : "Show Twi"}
                 </span>
               </button>
+
+              {/* Add narration button */}
               <button
-                onClick={() =>
-                  storyData.hasNext && loadStoryPage(storyData.currentPage + 1)
-                }
+                onClick={handleNarration}
+                className="px-6 py-3 bg-white/10 backdrop-blur-md hover:bg-white/20 rounded-lg text-white transition-all duration-300 ease-in-out flex-1 font-medium"
+              >
+                {isNarrating ? "Stop" : "Read Aloud"}
+              </button>
+
+              {/* Add pause/resume button when narrating */}
+              {isNarrating && (
+                <button
+                  onClick={handlePauseResume}
+                  className="px-6 py-3 bg-white/10 backdrop-blur-md hover:bg-white/20 rounded-lg text-white transition-all duration-300 ease-in-out flex-1 font-medium"
+                >
+                  {isPaused ? "Resume" : "Pause"}
+                </button>
+              )}
+
+              <button
+                onClick={handleNextPage}
                 className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-lg text-white transition-all duration-300 ease-in-out flex-1 font-medium"
               >
                 <span className="flex items-center justify-center gap-2">
