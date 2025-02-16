@@ -1,53 +1,65 @@
-let speech = null;
-let currentUtterance = null;
+import * as speechsdk from 'microsoft-cognitiveservices-speech-sdk';
 
-const ELEVENLABS_API_KEY = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
-const VOICE_ID = 'pNInz6obpgDQGcFmaJgB'; // Example voice ID
+let speech = null;
+let currentSynthesizer = null;
+let currentAudio = null;
+
+const AZURE_SUBSCRIPTION_KEY = "1ykqY1MFFfa43S0vkdBx6ZMQVJHYWQcCQ3hpXLOK4Eqq0qvF8t58JQQJ99BBACYeBjFXJ3w3AAAYACOGHa3h";
+const AZURE_REGION = "eastus";
 
 async function convertTextToSpeech(text) {
-    // Always use browser speech if no API key
-    if (!ELEVENLABS_API_KEY) {
-        return browserSpeech(text);
-    }
-
     try {
-        const response = await fetch(
-            `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}/stream`,
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'xi-api-key': ELEVENLABS_API_KEY,
-                },
-                body: JSON.stringify({
-                    text,
-                    model_id: 'eleven_monolingual_v1',
-                    voice_settings: {
-                        stability: 0.5,
-                        similarity_boost: 0.5,
-                    },
-                }),
-            }
+        // Set up Azure Speech config
+        const speechConfig = speechsdk.SpeechConfig.fromSubscription(
+            AZURE_SUBSCRIPTION_KEY,
+            AZURE_REGION
         );
 
-        if (!response.ok) {
-            throw new Error(`ElevenLabs API error: ${response.status}`);
-        }
+        // Set Swahili voice
+        speechConfig.speechSynthesisVoiceName = "sw-KE-RafikiNeural";
 
-        const audioBlob = await response.blob();
-        const audio = new Audio(URL.createObjectURL(audioBlob));
+        // Create audio config for playing audio in browser
+        const audioConfig = speechsdk.AudioConfig.fromDefaultSpeakerOutput();
 
-        return {
-            play: () => audio.play(),
-            pause: () => audio.pause(),
-            resume: () => audio.play(),
-            stop: () => {
-                audio.pause();
-                audio.currentTime = 0;
-            }
-        };
+        // Create the synthesizer
+        const synthesizer = new speechsdk.SpeechSynthesizer(speechConfig, audioConfig);
+        currentSynthesizer = synthesizer;
+
+        return new Promise((resolve, reject) => {
+            // Create audio element for controlling playback
+            const audio = new Audio();
+            currentAudio = audio;
+
+            synthesizer.speakTextAsync(
+                text,
+                result => {
+                    if (result) {
+                        // Convert the audio data to a Blob
+                        const blob = new Blob([result.audioData], { type: 'audio/wav' });
+                        audio.src = URL.createObjectURL(blob);
+                        
+                        resolve({
+                            play: () => audio.play(),
+                            pause: () => audio.pause(),
+                            resume: () => audio.play(),
+                            stop: () => {
+                                audio.pause();
+                                audio.currentTime = 0;
+                                synthesizer.close();
+                            }
+                        });
+                    }
+                },
+                error => {
+                    console.error('Speech synthesis error:', error);
+                    synthesizer.close();
+                    reject(error);
+                }
+            );
+        });
     } catch (error) {
-        console.warn('ElevenLabs API failed, falling back to browser speech:', error);
+        console.error('Azure Speech Service error:', error);
+        // Fall back to browser speech if Azure fails
         return browserSpeech(text);
     }
 }
@@ -63,7 +75,7 @@ function browserSpeech(text) {
         // Try to use a good voice if available
         const voices = speechSynthesis.getVoices();
         const englishVoice = voices.find(voice =>
-            voice.lang.startsWith('en') && voice.name.includes('Female'));
+            voice.lang.startsWith('en'));
         if (englishVoice) {
             utterance.voice = englishVoice;
         }
@@ -79,6 +91,9 @@ function browserSpeech(text) {
 
 export async function narrateStory(lines, voiceId, callbacks = {}) {
     try {
+        // Stop any existing narration before starting a new one
+        stopNarration();
+        
         for (let i = 0; i < lines.length; i++) {
             if (!lines[i]?.text) continue;
 
@@ -86,14 +101,15 @@ export async function narrateStory(lines, voiceId, callbacks = {}) {
             speech = await convertTextToSpeech(lines[i].text);
 
             await new Promise((resolve, reject) => {
-                if (currentUtterance) {
-                    currentUtterance.onend = resolve;
-                    currentUtterance.onerror = reject;
+                if (currentAudio) {
+                    currentAudio.onended = resolve;
+                    currentAudio.onerror = reject;
                 }
                 speech.play();
             });
 
             callbacks.onLineEnd?.(i);
+          
         }
     } catch (error) {
         console.error('Narration error:', error);
@@ -107,46 +123,31 @@ export function stopNarration() {
         speech.stop();
         speech = null;
     }
-    speechSynthesis.cancel();
+    if (currentSynthesizer) {
+        currentSynthesizer.close();
+        currentSynthesizer = null;
+    }
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+        currentAudio = null;
+    }
 }
 
 export function pauseNarration() {
     if (speech) {
         speech.pause();
     }
-    speechSynthesis.pause();
+    if (currentAudio) {
+        currentAudio.pause();
+    }
 }
 
 export function resumeNarration() {
     if (speech) {
-        speech.play();
+        speech.resume();
     }
-    speechSynthesis.resume();
-}
-
-// Helper function to get available voices
-export async function getAvailableVoices() {
-    const apiKey = process.env.ELEVEN_LABS_API_KEY;
-
-    try {
-        const response = await fetch(
-            `${ELEVEN_LABS_API_URL}/voices`,
-            {
-                headers: {
-                    'xi-api-key': apiKey
-                }
-            }
-        );
-
-        if (!response.ok) {
-            throw new Error(`Failed to fetch voices: ${response.statusText}`);
-        }
-
-        return await response.json();
-    } catch (error) {
-        console.error('Error fetching voices:', error);
-        throw error;
+    if (currentAudio) {
+        currentAudio.play();
     }
 }
-
-

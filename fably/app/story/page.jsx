@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-// Add TTS imports
+import Image from "next/image";
 import {
   narrateStory,
   stopNarration,
@@ -9,14 +9,16 @@ import {
 } from "../../utils/tts";
 import { useToast } from "@/components/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
-import { getStoryPage } from "../../utils/api";
+import { getStoryPage, generateStory } from "../../utils/api";
 import WebcamCapture from "../../utils/webcam";
+
+const API_BASE_URL = 'http://127.0.0.1:8000';
 
 export default function StoryPage() {
   const [progress, setProgress] = useState(0);
   const [storyData, setStoryData] = useState({
     lines: [],
-    currentPage: 1,
+    currentPage: 0,
     totalPages: 1,
     hasNext: false,
     hasPrevious: false,
@@ -28,11 +30,54 @@ export default function StoryPage() {
   const [backgroundImage, setBackgroundImage] = useState("/story.png");
   const [isNarrating, setIsNarrating] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [attentionStatus, setAttentionStatus] = useState({
+    isAttentive: true,
+    timeWithoutFace: 0
+  });
+
+  const initializeStory = async () => {
+    setLoading(true);
+    try {
+      const data = await generateStory();
+      if (data.message === "Story generated successfully") {
+        loadStoryPage(0);
+      } else {
+        setError("Failed to generate story");
+        toast({
+          title: "Error",
+          description: "Failed to generate story",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to initialize story:", error);
+      setError(error.message);
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadStoryPage = async (page) => {
     setLoading(true);
     try {
       const data = await getStoryPage(page);
+      
+      if (data.paused) {
+        setIsPaused(true);
+        pauseNarration();
+        toast({
+          title: "Story Paused",
+          description: data.message,
+          variant: "warning",
+        });
+        return;
+      }
+
       setStoryData({
         lines: data.lines,
         currentPage: data.currentPage,
@@ -42,11 +87,13 @@ export default function StoryPage() {
       });
       setProgress((data.currentPage / data.totalPages) * 100);
       setError(null);
+      setIsPaused(false);
     } catch (error) {
       console.error("Failed to load story:", error);
+      setError(error.message);
       toast({
         title: "Error",
-        description: "Using fallback content",
+        description: error.message,
         variant: "destructive",
       });
       setError("Unable to load story page");
@@ -126,22 +173,33 @@ export default function StoryPage() {
     }
   };
 
-  const handleCapture = (imageSrc) => {
-    // Here you have the base64 image to upload
-    console.log("Captured image:", imageSrc);
-    // Add your upload logic here
-  };
-
   const handleNextPage = () => {
     if (storyData.hasNext) {
-      handleCapture(); // Capture image before loading next page
       loadStoryPage(storyData.currentPage + 1);
     }
   };
 
   useEffect(() => {
-    loadStoryPage(1);
+    initializeStory();
   }, []);
+
+  const handleAttentionChange = (data) => {
+    setAttentionStatus(data.attention_status);
+    
+    if (data.story_state.paused !== isPaused) {
+      setIsPaused(data.story_state.paused);
+      if (data.story_state.paused) {
+        pauseNarration();
+        toast({
+          title: "Story Paused",
+          description: "Please look at the screen to continue the story",
+          variant: "warning",
+        });
+      } else {
+        resumeNarration();
+      }
+    }
+  };
 
   useEffect(() => {
     return () => {
@@ -164,7 +222,7 @@ export default function StoryPage() {
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-slate-950">
-      <WebcamCapture onCapture={handleCapture} />
+      <WebcamCapture onAttentionChange={handleAttentionChange} />
       <div className="lg:w-2/3 p-4 lg:p-6 relative min-h-[60vh] lg:min-h-screen">
         <div
           className="h-full rounded-2xl flex flex-col relative overflow-hidden transition-all duration-500 ease-in-out"
@@ -264,8 +322,22 @@ export default function StoryPage() {
       {/* Avatar panel */}
       <div className="lg:w-1/3 p-4 lg:p-6 bg-slate-900/50 backdrop-blur-lg">
         <div className="h-full rounded-2xl p-6 lg:p-8 flex flex-col items-center justify-center bg-slate-800/50 border border-white/10">
-          <div className="w-full h-[300px] flex items-center justify-center text-white/70">
-            Avatar placeholder
+          <div className="flex flex-col items-center gap-6">
+            <div className="w-[300px] h-[300px] relative rounded-full overflow-hidden border-4 border-white/10">
+              <Image
+                src="/avatar.jpg"
+                alt="Story Avatar"
+                fill
+                style={{ objectFit: 'cover' }}
+                priority
+                className="rounded-full"
+              />
+            </div>
+            {isNarrating && (
+              <div className="w-32 h-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-pulse">
+                <div className="w-full h-full bg-gradient-to-r from-blue-400 to-purple-400 rounded-full animate-pulse delay-75" />
+              </div>
+            )}
           </div>
         </div>
       </div>
