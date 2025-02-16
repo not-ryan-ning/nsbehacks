@@ -6,11 +6,8 @@ export const submitReaderData = async (formData) => {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'Access-Control-Allow-Origin': '*',
             },
-            mode: 'cors',
-            credentials: 'include',
+            // Remove credentials and CORS mode
             body: JSON.stringify({
                 cultural_background: formData.culture,
                 age_range: formData.listeners,
@@ -21,15 +18,12 @@ export const submitReaderData = async (formData) => {
         });
 
         if (!response.ok) {
-            const errorData = await response.json().catch(() => null);
-            throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        const data = await response.json();
-        return data;
+        return await response.json();
     } catch (error) {
         console.error('Error submitting reader data:', error);
-        // Throw a more user-friendly error
         throw new Error('Failed to connect to the server. Please check your connection and try again.');
     }
 };
