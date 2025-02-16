@@ -2,32 +2,35 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 
-// Mock function to simulate AI image generation
-const generateBackgroundImage = async () => {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    return '/placeholder-bg.jpg'; // Replace with actual API call
-};
-
 export default function StoryPage() {
     const [progress, setProgress] = useState(0);
     const [signLanguageMode, setSignLanguageMode] = useState(false);
-    const [backgroundImage, setBackgroundImage] = useState('/story.png');
+    const [backgroundImage, setBackgroundImage] = useState(null);
     const [storyData, setStoryData] = useState(null);
+    const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
-        // Load story data from localStorage
-        const savedStoryData = localStorage.getItem('storyData');
-        if (savedStoryData) {
-            setStoryData(JSON.parse(savedStoryData));
+        setIsMounted(true);
+        // Safe localStorage access only on client side
+        if (typeof window !== 'undefined') {
+            const savedStoryData = localStorage.getItem('storyData');
+            if (savedStoryData) {
+                try {
+                    setStoryData(JSON.parse(savedStoryData));
+                } catch (e) {
+                    console.error('Failed to parse story data:', e);
+                }
+            }
         }
         
-        const loadBackground = async () => {
-            const imageUrl = await generateBackgroundImage();
-            setBackgroundImage(imageUrl);
-        };
-        loadBackground();
+        // Set initial background image
+        setBackgroundImage('/story.png');
     }, []);
+
+    // Only render content after component is mounted
+    if (!isMounted) {
+        return null; // or a loading spinner
+    }
 
     const handleNextPage = () => {
         setProgress(prev => Math.min(prev + 20, 100));
@@ -40,7 +43,7 @@ export default function StoryPage() {
                 <div 
                     className="h-full rounded-2xl flex flex-col relative overflow-hidden transition-all duration-500 ease-in-out"
                     style={{
-                        backgroundImage: `url(${backgroundImage})`,
+                        backgroundImage: backgroundImage ? `url(${backgroundImage})` : 'none',
                         backgroundSize: 'cover',
                         backgroundPosition: 'center'
                     }}

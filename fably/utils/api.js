@@ -6,23 +6,30 @@ export const submitReaderData = async (formData) => {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Access-Control-Allow-Origin': '*',
             },
+            mode: 'cors',
+            credentials: 'include',
             body: JSON.stringify({
                 cultural_background: formData.culture,
                 age_range: formData.listeners,
                 story_length: formData.storyLength,
-                story_type: formData.mood
+                story_type: formData.mood,
+                language: formData.language
             })
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errorData = await response.json().catch(() => null);
+            throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
         }
 
         const data = await response.json();
         return data;
     } catch (error) {
         console.error('Error submitting reader data:', error);
-        throw error;
+        // Throw a more user-friendly error
+        throw new Error('Failed to connect to the server. Please check your connection and try again.');
     }
 };

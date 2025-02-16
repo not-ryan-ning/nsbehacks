@@ -1,18 +1,29 @@
 'use client';
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import GameButton from "@/components/button";
 import LoadingScreen from "@/components/LoadingScreen";
 import { useRouter } from "next/navigation"; // Change this line
 import { submitReaderData } from "@/utils/api";
+import { useToast } from "@/components/hooks/use-toast"
+import { Button } from "@/components/ui/button"
+import { ToastAction } from "@/components/ui/toast"
+
 
 export default function Home() {
-    const router = useRouter(); // Add this line
+    const router = useRouter();
+    const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     const [formData, setFormData] = useState({
         culture: '',
-        mood: '',
+        language: '',
+        theme: '',
         storyLength: '',
         listeners: ''
     });
@@ -33,7 +44,17 @@ export default function Home() {
         } catch (error) {
             console.error('Failed to submit form:', error);
             // Handle error (show error message to user)
-            alert('Failed to generate story. Please try again.');
+            toast({
+                variant: "destructive",
+                title: "Uh oh! Something went wrong.",
+                description: "There was a problem with your request.",
+                action: (
+                    <Button variant="outline" size="sm" className = "text-slate-800" onClick={() => handleSubmit(e)}>
+                        Try again
+                    </Button>
+                ),
+            });
+           
         } finally {
             setIsLoading(false);
         }
@@ -46,6 +67,10 @@ export default function Home() {
             [id]: value
         }));
     };
+
+    if (!isMounted) {
+        return null; // or a loading spinner
+    }
 
     return (
         <div className="grid lg:grid-cols-5 min-h-screen bg-slate-950">
@@ -88,6 +113,25 @@ export default function Home() {
                             <option value="asian">Asian</option>
                             <option value="european">European</option>
                             <option value="latin-american">Latin American</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="language" className="block text-sm font-medium text-gray-300">
+                            Language
+                        </label>
+                        <select
+                            id="language"
+                            value={formData.language}
+                            onChange={handleChange}
+                            className="mt-1 block w-full p-3 border rounded bg-slate-800 border-slate-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            required
+                        >
+                            <option value="">Select Language</option>
+                            <option value="english">English</option>
+                            <option value="swahili">Swahili</option>
+                            <option value="chinese">Chinese</option>
+                            <option value="french">French</option>
+                            <option value="portuguese">Portuguese</option>
                         </select>
                     </div>
                     <div>
