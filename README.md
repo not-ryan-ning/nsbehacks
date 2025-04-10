@@ -2,6 +2,19 @@
 
 An interactive storytelling platform that preserves indigenous languages and cultures by using interactive fables and conversations to teach them to children, with the power of AI.
 
+## Demo Video
+
+<iframe 
+    width="787" 
+    height="556" 
+    src="https://www.youtube.com/embed/ghpsJSNnOHU" 
+    title="Fabley Hackathon Demo: AI-Powered Interactive Folklore Experience" 
+    frameborder="0" 
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+    referrerpolicy="strict-origin-when-cross-origin" 
+    allowfullscreen>
+</iframe>
+
 ## Why It Matters
 
 With over 7,000 languages worldwide, but only a few actively taught, children in indigenous communities lack engaging language tools. As elders pass, cultural knowledge is lost forever. Unlike traditional language apps that rely on memorization through flashcards and drills, Fably recognizes that language is learned through real conversation and cultural context.
